@@ -3,8 +3,28 @@
 
 express = require('express');
 const bodyParser= require('body-parser');
+var Guid = require("guid");
 var app = express();
-app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
+
+app.use(function (req, res, next) {
+
+    // Website you wish to allow to connect
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Request methods you wish to allow
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+
+    // Request headers you wish to allow
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+    // Set to true if you need the website to include cookies in the requests sent
+    // to the API (e.g. in case you use sessions)
+    res.setHeader('Access-Control-Allow-Credentials', true);
+
+    // Pass to next layer of middleware
+    next();
+});
 
 const MongoClient = require('mongodb').MongoClient;
 var db;
@@ -29,17 +49,19 @@ app.get('/', (req, res) => {
 });
 
 app.post('/insertpost', (req, res)=>{
-	console.log("Inserting " + req.entry);
-	if(!req.entry)
+	if(!req.body || !req.body.entry)
 	{
 		res.type('text/plain');
 		res.status(500);
 		res.send('500 Server Error');	
 	}
 	
+	console.log("Adding new post");
+	
 	var entry = {};
-	entry.User = req.entry.User;
-	entry.Date = Date.Now();
+	entry.User = req.body.entry.User;
+	entry.Text = req.body.entry.Text;
+	entry.Id = Guid.create().value;
 	var collection = db.collection("posts");
 	collection.insert(entry, (err, result)=>{
 		if(!err)
@@ -58,14 +80,19 @@ app.post('/insertpost', (req, res)=>{
 });
 
 app.get('/getall', (req, res)=>{
-	console.log("Getting all posts");
-	var collection = db.collection("posts");
-	collection.find({}, (err, result)=>{
+		console.log("Getting all posts");
+		db.collection("posts").find().toArray((err, result)=>{
 		if(!err)
 		{
 			res.type('text/plain');
 			res.status(200);
-			res.send(result);
+			var returnList = [];
+			for(j=0;j<result.length;j++)
+			{
+				returnList.push({ User: result[j].User, Text: result[j].Text, Id: result[j].Id });				
+			}			
+			
+			res.send(returnList);
 		}
 		else
 		{
